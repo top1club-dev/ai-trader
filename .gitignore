@@ -1,0 +1,6 @@
+data_cache/
+__pycache__/
+*.log
+journal.db
+reports/
+models/ppo_20*.zip

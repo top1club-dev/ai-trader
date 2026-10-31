@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BharatCharts – Free BSE Charts &amp; Paper Trading</title>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+:root{--bg:#0b0e14;--panel:#131722;--p2:#1c2030;--line:#2a2e39;--tx:#d1d4dc;--mut:#787b86;--up:#26a69a;--dn:#ef5350;--ac:#2962ff;color-scheme:dark}
+[data-theme=light]{--bg:#e9edf3;--panel:#ffffff;--p2:#f3f5f9;--line:#dfe3ea;--tx:#131722;--mut:#6b7280;color-scheme:light}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font:13px/1.4 Inter,system-ui,Segoe UI,Roboto,sans-serif;height:100vh;display:flex;flex-direction:column}
+header{display:flex;gap:10px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{font-weight:800;font-size:16px;letter-spacing:.3px;margin-right:6px}.logo b{color:var(--ac)}
+input,select,button{background:var(--p2);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit}
+input:focus,select:focus{outline:1px solid var(--ac)}
+button{cursor:pointer}button:hover{border-color:var(--ac)}
+.seg{display:flex;gap:2px;flex-wrap:wrap}.seg button{border:0;background:transparent;color:var(--mut);padding:5px 8px}
+.seg button.on{background:var(--ac);color:#fff}
+main{flex:1;display:grid;grid-template-columns:210px 1fr 270px;gap:8px;padding:8px;min-height:0}
+aside,section{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-height:0;overflow:auto}
+aside{padding:10px}h4{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.8px;margin:0 0 8px}
+#chartwrap{position:relative;overflow:hidden}#chart{position:absolute;inset:0}
+#info{position:absolute;top:8px;left:12px;z-index:5;font-size:12px;pointer-events:none;text-shadow:0 0 4px var(--panel)}
+.row{display:flex;justify-content:space-between;padding:6px 6px;border-radius:6px;cursor:pointer}
+.row:hover,.row.on{background:var(--p2)}.up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--mut)}
+.buy{background:var(--up);border:0;color:#fff;font-weight:700;flex:1;padding:9px}.sell{background:var(--dn);border:0;color:#fff;font-weight:700;flex:1;padding:9px}
+.kv{display:flex;justify-content:space-between;padding:3px 0}
+table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:4px 2px;text-align:right}td:first-child,th:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+@media(max-width:1000px){body{height:auto}main{grid-template-columns:1fr}#chartwrap{height:70vh;order:-1}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Bharat<b>Charts</b></div>
+  <input id="sym" list="wl" placeholder="BSE symbol (TCS, RELIANCE…)" size="22">
+  <datalist id="wl"></datalist>
+  <div class="seg" id="tfs"></div>
+  <select id="type">
+    <option value="candle">Candles</option><option value="hollow">Hollow candles</option>
+    <option value="ha">Heikin Ashi</option><option value="bar">OHLC bars</option>
+    <option value="line">Line</option><option value="area">Area</option><option value="base">Baseline</option>
+  </select>
+  <div class="seg" id="inds"></div>
+  <button id="theme" title="Dark / Light">◐</button>
+</header>
+<main>
+  <aside><h4>Watchlist · BSE</h4><div id="wlist"></div></aside>
+  <section id="chartwrap"><div id="info"></div><div id="chart"></div></section>
+  <aside>
+    <div class="seg" style="margin-bottom:8px"><button id="tabM" class="on" onclick="tab('M')">Manual</button><button id="tabB" onclick="tab('B')">🤖 AI Bot</button></div>
+    <div id="manual">
+    <h4>Paper Trading</h4>
+    <div class="kv"><span class="mut">Balance</span><b id="bal"></b></div>
+    <div class="kv"><span class="mut">Equity</span><b id="eq"></b></div>
+    <div class="kv"><span class="mut">Price</span><b id="px"></b></div>
+    <div style="display:flex;gap:6px;margin:10px 0"><input id="qty" type="number" min="1" value="1" style="width:80px">
+      <button class="buy" onclick="trade('buy')">BUY</button><button class="sell" onclick="trade('sell')">SELL</button></div>
+    <h4>Positions</h4><div id="pos"></div>
+    <h4 style="margin-top:12px">Trade log</h4><div id="log"></div>
+    <button onclick="resetAcct()" style="margin-top:12px;width:100%">Reset ₹10,000</button>
+    <p class="mut" style="margin-top:10px;font-size:11px">Virtual paise se practice. Data ~15 min delayed ho sakta hai. Investment advice nahi.</p>
+    </div>
+    <div id="botpane" style="display:none">
+      <div class="kv"><span class="mut">Status</span><b id="bst">–</b></div>
+      <div class="kv"><span class="mut">Balance</span><b id="bbal"></b></div>
+      <div class="kv"><span class="mut">Return</span><b id="bret"></b></div>
+      <div class="kv"><span class="mut">Win / Loss</span><b id="bwl"></b></div>
+      <div class="kv"><span class="mut">Points (total R)</span><b id="br"></b></div>
+      <h4 style="margin-top:12px">Open positions</h4><div id="bpos"></div>
+      <h4 style="margin-top:12px">Trade history</h4><div id="bhist"></div>
+      <p style="margin-top:10px"><a href="/report" target="_blank" style="color:var(--ac)">📄 Poori report</a> &nbsp;·&nbsp; <a href="/trades.csv" style="color:var(--ac)">⬇ CSV</a></p>
+    </div>
+  </aside>
+</main>
+<script>
+const LW=LightweightCharts,$=s=>document.querySelector(s);
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v===null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const WL=["RELIANCE","TCS","HDFCBANK","INFY","ICICIBANK","SBIN","BHARTIARTL","ITC","LT","HINDUNILVR","KOTAKBANK","AXISBANK","MARUTI","SUNPHARMA","TATASTEEL","WIPRO","ADANIENT","BAJFINANCE","ASIANPAINT","TITAN","NTPC","ONGC","POWERGRID","HCLTECH","ULTRACEMCO","COALINDIA","HAL","DMART","IRCTC"];
+const TFS=["1m","2m","3m","5m","10m","15m","30m","1h","4h","1D","1W","1M"],INDS={vol:"Vol",sma:"SMA20",ema:"EMA50",bb:"BB",rsi:"RSI",macd:"MACD"};
+let S=store.get("bc_state",{sym:"RELIANCE",tf:"15m",type:"candle",ind:{vol:1},theme:"dark"});
+let P=store.get("bc_paper",{bal:10000,pos:{},log:[]});
+let chart,main,X={},data=[],last={},Q={},timer,tok=0;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(),fmt=n=>"₹"+Number(n).toLocaleString("en-IN",{maximumFractionDigits:2});
+
+/* ---------- indicators ---------- */
+const sma=(d,n)=>{const o=[];let s=0;d.forEach((x,i)=>{s+=x.close;if(i>=n)s-=d[i-n].close;if(i>=n-1)o.push({time:x.time,value:s/n})});return o};
+const ema=(v,n)=>{const k=2/(n+1);let e;return v.map(x=>{e=e===undefined?x.value:x.value*k+e*(1-k);return{time:x.time,value:e}})};
+const closes=d=>d.map(x=>({time:x.time,value:x.close}));
+function bb(d,n=20,m=2){const u=[],mid=[],l=[];for(let i=n-1;i<d.length;i++){let s=0;for(let j=i-n+1;j<=i;j++)s+=d[j].close;const a=s/n;let v=0;for(let j=i-n+1;j<=i;j++)v+=(d[j].close-a)**2;const sd=Math.sqrt(v/n),t=d[i].time;u.push({time:t,value:a+m*sd});mid.push({time:t,value:a});l.push({time:t,value:a-m*sd})}return{u,mid,l}}
+function rsi(d,n=14){const o=[];let g=0,l=0;for(let i=1;i<d.length;i++){const c=d[i].close-d[i-1].close,G=Math.max(c,0),L=Math.max(-c,0);if(i<=n){g+=G;l+=L;if(i===n){g/=n;l/=n;o.push({time:d[i].time,value:100-100/(1+g/(l||1e-9))})}}else{g=(g*(n-1)+G)/n;l=(l*(n-1)+L)/n;o.push({time:d[i].time,value:100-100/(1+g/(l||1e-9))})}}return o}
+function macd(d){const c=closes(d),a=ema(c,12),b=ema(c,26),m=a.map((x,i)=>({time:x.time,value:x.value-b[i].value})),s=ema(m,9);return{m,s,h:m.map((x,i)=>({time:x.time,value:x.value-s[i].value,color:x.value-s[i].value>=0?css("--up")+"aa":css("--dn")+"aa"}))}}
+function ha(d){let po,pc;return d.map((x,i)=>{const c=(x.open+x.high+x.low+x.close)/4,o=i?(po+pc)/2:(x.open+x.close)/2;po=o;pc=c;return{time:x.time,open:o,close:c,high:Math.max(x.high,o,c),low:Math.min(x.low,o,c)}})}
+
+/* ---------- chart ---------- */
+function build(){
+  if(chart){chart.remove();chart=null}X={};
+  const up=css("--up"),dn=css("--dn"),ac=css("--ac"),ln=css("--line"),intr=!["1D","1W","1M"].includes(S.tf);
+  chart=LW.createChart($("#chart"),{autoSize:true,layout:{background:{type:"solid",color:css("--panel")},textColor:css("--mut")},
+    grid:{vertLines:{color:ln+"66"},horzLines:{color:ln+"66"}},rightPriceScale:{borderColor:ln},timeScale:{borderColor:ln,timeVisible:intr,secondsVisible:false}});
+  const T=S.type,cs={upColor:up,downColor:dn,borderUpColor:up,borderDownColor:dn,wickUpColor:up,wickDownColor:dn};
+  if(T==="candle"||T==="ha")main=chart.addSeries(LW.CandlestickSeries,cs);
+  else if(T==="hollow")main=chart.addSeries(LW.CandlestickSeries,{...cs,upColor:"rgba(0,0,0,0)"});
+  else if(T==="bar")main=chart.addSeries(LW.BarSeries,{upColor:up,downColor:dn});
+  else if(T==="line")main=chart.addSeries(LW.LineSeries,{color:ac,lineWidth:2});
+  else if(T==="area")main=chart.addSeries(LW.AreaSeries,{lineColor:ac,topColor:ac+"66",bottomColor:ac+"05"});
+  else main=chart.addSeries(LW.BaselineSeries,{topLineColor:up,bottomLineColor:dn,topFillColor1:up+"55",topFillColor2:up+"05",bottomFillColor1:dn+"05",bottomFillColor2:dn+"55"});
+  const L=(c,p=0)=>chart.addSeries(LW.LineSeries,{color:c,lineWidth:1,priceLineVisible:false,lastValueVisible:false},p);
+  const I=S.ind;let pane=1;
+  if(I.vol){X.vol=chart.addSeries(LW.HistogramSeries,{priceFormat:{type:"volume"},priceScaleId:""});X.vol.priceScale().applyOptions({scaleMargins:{top:.8,bottom:0}});main.priceScale().applyOptions({scaleMargins:{top:.08,bottom:.2}})}
+  if(I.sma)X.sma=L("#f5a623");if(I.ema)X.ema=L("#ab47bc");
+  if(I.bb){X.bu=L("#42a5f5");X.bm=L("#42a5f588");X.bl=L("#42a5f5")}
+  if(I.rsi){X.rsi=L("#7e57c2",pane);X.rsi.createPriceLine({price:70,color:dn+"88",lineWidth:1,axisLabelVisible:false});X.rsi.createPriceLine({price:30,color:up+"88",lineWidth:1,axisLabelVisible:false});pane++}
+  if(I.macd){X.mh=chart.addSeries(LW.HistogramSeries,{priceLineVisible:false,lastValueVisible:false},pane);X.mm=L("#2962ff",pane);X.ms=L("#ff9800",pane);pane++}
+  try{chart.panes().forEach((p,i)=>{if(i>0)p.setHeight(120)})}catch(e){}
+  chart.subscribeCrosshairMove(p=>{const d=p.seriesData&&p.seriesData.get(main);if(!d){return head()}
+    const v=d.close!==undefined?`O ${d.open.toFixed(2)}  H ${d.high.toFixed(2)}  L ${d.low.toFixed(2)}  C ${d.close.toFixed(2)}`:`${d.value.toFixed(2)}`;head(v)});
+  apply();chart.timeScale().fitContent();
+}
+function head(v){const d=data[data.length-1];if(!d)return;$("#info").innerHTML=`<b>${S.sym}</b> · BSE · ${S.tf} &nbsp;<span class="${d.close>=d.open?"up":"dn"}">${v||`O ${d.open.toFixed(2)}  H ${d.high.toFixed(2)}  L ${d.low.toFixed(2)}  C ${d.close.toFixed(2)}`}</span>`}
+function apply(){
+  const T=S.type;let m;
+  if(T==="ha")m=ha(data);else if(["line","area","base"].includes(T))m=closes(data);else m=data;
+  if(T==="base")main.applyOptions({baseValue:{type:"price",price:data[0].close}});
+  main.setData(m);
+  if(X.vol)X.vol.setData(data.map(d=>({time:d.time,value:d.volume,color:d.close>=d.open?css("--up")+"66":css("--dn")+"66"})));
+  if(X.sma)X.sma.setData(sma(data,20));if(X.ema)X.ema.setData(ema(closes(data),50));
+  if(X.bu){const b=bb(data);X.bu.setData(b.u);X.bm.setData(b.mid);X.bl.setData(b.l)}
+  if(X.rsi)X.rsi.setData(rsi(data));
+  if(X.mm){const k=macd(data);X.mm.setData(k.m);X.ms.setData(k.s);X.mh.setData(k.h)}
+  head();
+}
+async function load(initial){
+  const my=++tok;
+  try{
+    const r=await fetch(`/api/candles?symbol=${encodeURIComponent(S.sym)}&tf=${S.tf}`),j=await r.json();
+    if(my!==tok)return;if(!r.ok)throw new Error(j.error||"server error");
+    data=j.candles;last[S.sym]=data[data.length-1].close;
+    if(initial||!chart)build();else{const g=chart.timeScale().getVisibleLogicalRange();apply();if(g)chart.timeScale().setVisibleLogicalRange(g)}
+    renderAcct();
+  }catch(e){$("#info").innerHTML=`<span class="dn">Data error: ${e.message}</span>`}
+}
+function restart(){store.set("bc_state",S);clearInterval(timer);load(true);timer=setInterval(()=>load(false),["1D","1W","1M"].includes(S.tf)?30000:5000);drawWL()}
+
+/* ---------- UI ---------- */
+function drawUI(){
+  $("#tfs").innerHTML=TFS.map(t=>`<button class="${t===S.tf?"on":""}" onclick="S.tf='${t}';drawUI();restart()">${t}</button>`).join("");
+  $("#inds").innerHTML=Object.entries(INDS).map(([k,n])=>`<button class="${S.ind[k]?"on":""}" onclick="S.ind['${k}']=S.ind['${k}']?0:1;drawUI();restart()">${n}</button>`).join("");
+  $("#type").value=S.type;$("#sym").value=S.sym;
+}
+function drawWL(){
+  $("#wlist").innerHTML=WL.map(s=>{const q=Q[s+".BO"];return`<div class="row ${s===S.sym?"on":""}" onclick="S.sym='${s}';drawUI();restart()"><span>${s}</span><span>${q?`${q.price.toFixed(2)} <span class="${q.chg>=0?"up":"dn"}">${q.chg>=0?"+":""}${q.chg}%</span>`:""}</span></div>`}).join("");
+}
+async function quotes(){try{const r=await fetch("/api/quotes?symbols="+encodeURIComponent(WL.join(",")));if(r.ok){Q=await r.json();for(const s of WL)if(Q[s+".BO"]&&!last[s])last[s]=Q[s+".BO"].price;drawWL();renderAcct()}}catch(e){}}
+$("#wl").innerHTML=WL.map(s=>`<option value="${s}">`).join("");
+$("#sym").addEventListener("keydown",e=>{if(e.key==="Enter"){S.sym=e.target.value.toUpperCase().trim();drawUI();restart()}});
+$("#type").onchange=e=>{S.type=e.target.value;restart()};
+$("#theme").onclick=()=>{S.theme=S.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=S.theme;restart()};
+
+/* ---------- paper trading ---------- */
+const equity=()=>P.bal+Object.entries(P.pos).reduce((a,[s,p])=>a+p.q*((last[s]||p.avg)-p.avg),0);
+function trade(side){
+  const q=Math.floor(+$("#qty").value),p=last[S.sym];if(!q||q<1||!p)return;
+  if(q*p>equity()*5)return alert("Margin kam hai (max 5x leverage)");
+  const s=side==="buy"?1:-1,pos=P.pos[S.sym]||{q:0,avg:0};let rem=q,pnl=0;
+  if(pos.q*s<0){const c=Math.min(rem,Math.abs(pos.q));pnl=(p-pos.avg)*c*(pos.q>0?1:-1);pos.q+=s*c;rem-=c;if(!pos.q)pos.avg=0}
+  if(rem>0){const n=Math.abs(pos.q)+rem;pos.avg=(pos.avg*Math.abs(pos.q)+p*rem)/n;pos.q+=s*rem}
+  const fee=p*q*0.0003;P.bal+=pnl-fee;if(pos.q===0)delete P.pos[S.sym];else P.pos[S.sym]=pos;
+  P.log.unshift({t:new Date().toLocaleTimeString(),sym:S.sym,side,q,p,pnl:pnl-fee});P.log=P.log.slice(0,30);store.set("bc_paper",P);renderAcct();
+}
+function resetAcct(){if(confirm("Account reset karein?")){P={bal:10000,pos:{},log:[]};store.set("bc_paper",P);renderAcct()}}
+function renderAcct(){
+  $("#bal").textContent=fmt(P.bal);$("#eq").textContent=fmt(equity());$("#px").textContent=last[S.sym]?fmt(last[S.sym]):"–";
+  const rows=Object.entries(P.pos).map(([s,p])=>{const u=p.q*((last[s]||p.avg)-p.avg);return`<tr><td>${s}</td><td>${p.q}</td><td>${p.avg.toFixed(2)}</td><td class="${u>=0?"up":"dn"}">${u.toFixed(0)}</td></tr>`}).join("");
+  $("#pos").innerHTML=rows?`<table><tr><th>Sym</th><th>Qty</th><th>Avg</th><th>P&amp;L</th></tr>${rows}</table>`:`<span class="mut">Koi open position nahi</span>`;
+  $("#log").innerHTML=P.log.slice(0,8).map(l=>`<div class="kv"><span class="${l.side==="buy"?"up":"dn"}">${l.side.toUpperCase()} ${l.q} ${l.sym} @ ${l.p.toFixed(2)}</span><span class="${l.pnl>=0?"up":"dn"}">${l.pnl.toFixed(0)}</span></div>`).join("");
+}
+
+/* ---------- AI bot panel ---------- */
+function tab(t){$("#manual").style.display=t==="M"?"":"none";$("#botpane").style.display=t==="B"?"":"none";$("#tabM").className=t==="M"?"on":"";$("#tabB").className=t==="B"?"on":"";if(t==="B")bot()}
+const sg=v=>(v>=0?"+":"")+v.toFixed(2);
+async function bot(){try{
+  const [s,t]=await Promise.all([fetch("/api/bot/state").then(r=>r.json()),fetch("/api/bot/trades?limit=60").then(r=>r.json())]);
+  const on=s.beat_age<90,ret=(s.balance/s.start-1)*100;
+  $("#bst").innerHTML=`<span class="${on?"up":"dn"}">● ${on?"Online":"Offline"}</span> <span class="mut" style="font-weight:400;font-size:11px">${s.beat_msg}</span>`;
+  $("#bbal").textContent=fmt(s.balance);$("#bret").innerHTML=`<span class="${ret>=0?"up":"dn"}">${sg(ret)}%</span>`;
+  $("#bwl").innerHTML=`<span class="up">${s.wins}</span> / <span class="dn">${s.trades-s.wins}</span>`;
+  $("#br").innerHTML=`<span class="${s.total_r>=0?"up":"dn"}">${sg(s.total_r)} R</span>`;
+  $("#bpos").innerHTML=s.positions.length?`<table><tr><th>Stock</th><th>Side</th><th>Entry</th><th>Live R</th></tr>${s.positions.map(p=>{const L=last[p.symbol.split(".")[0]],r=L?p.dir*(L-p.entry)*p.qty/p.risk:null;return`<tr><td>${p.symbol.split(".")[0]}</td><td>${p.dir>0?"L":"S"} 1:${p.rr}</td><td>${p.entry.toFixed(1)}</td><td class="${r>=0?"up":"dn"}">${r===null?"–":sg(r)}</td></tr>`}).join("")}</table>`:`<span class="mut">Koi open position nahi</span>`;
+  $("#bhist").innerHTML=t.length?`<table style="font-size:11px"><tr><th>Stock</th><th>1:R</th><th>Result</th><th>R</th><th>₹</th></tr>${t.map(x=>`<tr title="${x.t_in} → ${x.t_out} (${x.reason})"><td>${x.symbol.split(".")[0]}<br><span class="mut">${x.t_out.slice(5,16)}</span></td><td>${x.direction[0]} 1:${x.rr}</td><td class="${x.result==="WIN"?"up":"dn"}">${x.result}<br><span class="mut">${x.reason}</span></td><td class="${x.r_multiple>=0?"up":"dn"}">${sg(x.r_multiple)}</td><td class="${x.pnl>=0?"up":"dn"}">${x.pnl.toFixed(0)}</td></tr>`).join("")}</table>`:`<span class="mut">Abhi koi trade nahi hua</span>`;
+}catch(e){}}
+setInterval(()=>{if($("#botpane").style.display!=="none")bot()},10000);
+document.documentElement.dataset.theme=S.theme;drawUI();restart();quotes();setInterval(quotes,15000);
+</script>
+</body>
+</html>
