@@ -47,14 +47,16 @@ jobs:
           python server.py > server.log 2>&1 &
           for i in $(seq 1 30); do curl -s localhost:8000/api/bot/state > /dev/null && break; sleep 2; done
           python bot.py --stop-at 15:36 --max-minutes 335 --push-every 30
-      - name: Roz ka seekhna (sirf market close wale session mein)
+      - name: Roz ka seekhna (din mein sirf ek baar, market close ke baad)
         if: steps.guard.outputs.skip != 'true'
         run: |
           NOW=$(date +%H%M)
-          if [ "$NOW" -ge 1530 ] && [ "$NOW" -lt 2000 ] && [ -f models/tf_scores.json ]; then
+          TODAY=$(date +%F)
+          if [ "$NOW" -ge 1530 ] && [ "$NOW" -lt 2000 ] && [ -f models/tf_scores.json ] && [ "$(cat models/last_finetune.txt 2>/dev/null)" != "$TODAY" ]; then
             TFS=$(python -c "import json;print(','.join(json.load(open('models/tf_scores.json'))['scores']))")
             python trading_ai.py --market india --finetune --tfs "$TFS" --steps 100000
             python report.py --policy
+            echo "$TODAY" > models/last_finetune.txt
           fi
       - name: Save (ledger, report, model)
         if: always() && steps.guard.outputs.skip != 'true'
